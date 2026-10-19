@@ -11,6 +11,7 @@ import { tlAfter } from '../views/timeline.js';
 import { renderLayer } from '../overlays/drawer.js';
 import { placePop } from '../overlays/popovers.js';
 import { renderAuth } from '../pages/auth.js';
+import { appOfRoute } from '../data/templates-seed.js';
 
 export const ROUTE_NAMES = {
   home: 'Home',
@@ -33,6 +34,21 @@ export const ROUTE_NAMES = {
   system: 'Design system',
   states: 'System states',
   archive: 'Archive',
+  templates: 'Template gallery',
+  'an-overview': 'Analytics overview',
+  'an-revenue': 'Revenue & MRR',
+  'an-usage': 'Cloud & API usage',
+  'an-invoices': 'Billing ledger',
+  'crm-inbox': 'Support inbox',
+  'crm-deals': 'Deal pipeline',
+  'crm-contacts': 'Accounts & contacts',
+  'st-prompts': 'Prompt studio',
+  'st-docs': 'Knowledge docs',
+  'st-runs': 'Eval & run logs',
+  'cm-orders': 'Orders',
+  'cm-products': 'Products & SKUs',
+  'cm-customers': 'Customers',
+  'fl-hub': 'Flows & auth hub',
 };
 export const ROUTE_ICONS = {
   home: 'house',
@@ -53,10 +69,27 @@ export const ROUTE_ICONS = {
   system: 'component',
   states: 'layers',
   archive: 'archive',
+  templates: 'layout-template',
+  'an-overview': 'chart-column',
+  'an-revenue': 'trending-up',
+  'an-usage': 'cpu',
+  'an-invoices': 'receipt',
+  'crm-inbox': 'inbox',
+  'crm-deals': 'square-kanban',
+  'crm-contacts': 'building-2',
+  'st-prompts': 'sparkles',
+  'st-docs': 'book-open',
+  'st-runs': 'terminal',
+  'cm-orders': 'shopping-bag',
+  'cm-products': 'package',
+  'cm-customers': 'users',
+  'fl-hub': 'shield-check',
 };
 
 export function go(route, params = {}, opt = {}) {
   if (route === 'project' && !params.tab) params.tab = 'board';
+  const app = appOfRoute(route);
+  if (app) S.ui.app = app;
   if (!opt.back) S.ui.history.push({ route: S.ui.route, params: S.ui.params });
   const same = S.ui.route === route && JSON.stringify(S.ui.params) === JSON.stringify(params);
   S.ui.route = route;
@@ -66,6 +99,7 @@ export function go(route, params = {}, opt = {}) {
   S.ui.pop = null;
   S.ui.composer = null;
   S.ui.editCell = null;
+  S.ui.inspector = null;
   if (!opt.keepDrawer && S.ui.drawer && innerWidth < 900) S.ui.drawer = null;
   // Pages render instantly; motion (not a fake wait) carries the transition.
   clearTimeout(go._t);

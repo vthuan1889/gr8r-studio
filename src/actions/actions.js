@@ -4,6 +4,7 @@
 import { $, $$, TODAY, addD, dOff, esc, fmtDate, iso, parse, uid } from '../core/utils.js';
 import { PR, PSTAT, ST } from '../core/constants.js';
 import { seed } from '../data/seed.js';
+import { ARCHETYPES, DEAL_STAGES, seedTemplates } from '../data/templates-seed.js';
 import { D, DEFAULT_PREFS, S, allTasks, canSee, commentsOf, logAct, me, mem, proj, save, task, tasksOf, visibleProjects } from '../core/store.js';
 import { fileType, fsize } from '../ui/helpers.js';
 import { effectiveDark } from '../core/theme.js';
@@ -1797,6 +1798,10 @@ A.resetDemo = () => {
     icon: 'rotate-ccw',
     run: () => {
       S.data = seed();
+      S.tpl = seedTemplates();
+      S.ui.app = 'pm';
+      S.ui.stateSim = 'default';
+      S.ui.inspector = null;
       S.views = {};
       S.prefs = { ...DEFAULT_PREFS, theme: S.prefs.theme };
       S.ui.drawer = null;
@@ -2290,4 +2295,191 @@ A.onbFinish = () => {
   S.ui.auth = null;
   go('project', { id: p.id, tab: S.prefs.defaultTab });
   toast(`Welcome to ${D().ws.name}`);
+};
+
+/* ---------- app templates · state simulator · inspector ---------- */
+const TPL_SECT = { an: 'analytics', crm: 'crm', st: 'studio', cm: 'commerce' };
+
+A.switchApp = el => {
+  const a = ARCHETYPES.find(x => x.id === el.dataset.v);
+  if (!a) return;
+  S.ui.pop = null;
+  S.ui.app = a.id;
+  S.ui.inspector = null;
+  go(a.routes.includes(S.ui.route) ? S.ui.route : a.defaultRoute);
+  toast(`${a.name} template loaded`, { kind: 'info', ms: 1800 });
+};
+A.setStateSim = el => {
+  S.ui.stateSim = el.dataset.v;
+  render();
+};
+A.setAccent = el => A.setPref({ dataset: { k: 'accent', v: el.dataset.v } });
+A.setDensity = el => A.setPref({ dataset: { k: 'density', v: el.dataset.v } });
+A.tplQuick = el => {
+  const sec = S.tpl[S.ui.app];
+  if (sec) sec[el.dataset.k] = el.dataset.v;
+  go(el.dataset.r);
+};
+A.tplSort = el => {
+  const key = el.dataset.key;
+  const s = S.tpl.sort[key] || (S.tpl.sort[key] = { f: '', dir: 1 });
+  const f = el.dataset.f;
+  s.dir = s.f === f ? -s.dir : 1;
+  s.f = f;
+  render();
+};
+IN.tplSearch = el => {
+  const sec = S.tpl[TPL_SECT[el.dataset.key]];
+  if (!sec) return;
+  sec.q = el.value;
+  sec.qRoute = S.ui.route;
+  render();
+};
+A.openInspector = el => {
+  S.ui.inspector = { app: el.dataset.app || S.ui.app, type: el.dataset.type || '', id: el.dataset.id };
+  S.ui.drawerOpener = focusKey(el);
+  render();
+};
+A.closeInspector = () => {
+  S.ui.inspector = null;
+  render();
+};
+
+/* analytics */
+A.anSetRange = el => {
+  S.tpl.analytics.range = el.dataset.v;
+  render();
+};
+IN.anSetEnv = el => {
+  S.tpl.analytics.env = el.value;
+  render();
+};
+A.anSetStatus = el => {
+  S.tpl.analytics.statusFilter = el.dataset.v;
+  render();
+};
+
+/* CRM */
+A.crmSetTab = el => {
+  S.tpl.crm.tab = el.dataset.v;
+  render();
+};
+A.crmSelectThread = el => {
+  S.ui.inspector = null;
+  S.tpl.crm.selThread = el.dataset.id || null;
+  S.tpl.crm.replyDraft = '';
+  render();
+};
+A.crmToggleNote = () => {
+  S.tpl.crm.noteMode = !S.tpl.crm.noteMode;
+  render();
+};
+IN.crmDraft = el => {
+  S.tpl.crm.replyDraft = el.value;
+};
+A.crmSendReply = el => {
+  const c = S.tpl.crm;
+  const t = c.threads.find(x => x.id === el.dataset.id);
+  const body = c.replyDraft.trim();
+  if (!t || !body) {
+    toast('Write a reply first', { kind: 'err' });
+    return;
+  }
+  t.messages.push({ by: S.prefs.name, at: Date.now(), body, internal: c.noteMode });
+  t.preview = body.slice(0, 72);
+  t.updated = Date.now();
+  t.unread = false;
+  c.replyDraft = '';
+  toast(c.noteMode ? 'Internal note added' : `Reply sent to ${t.from}`);
+  render();
+};
+A.crmAdvanceDeal = el => {
+  const id = el.dataset.id || el.dataset.v;
+  const d = S.tpl.crm.deals.find(x => x.id === id);
+  if (!d) return;
+  const i = DEAL_STAGES.indexOf(d.stage);
+  if (i < 0 || i === DEAL_STAGES.length - 1) return;
+  d.stage = DEAL_STAGES[i + 1];
+  toast(`${d.name} moved to ${d.stage}`);
+  render();
+};
+
+/* AI studio */
+A.stSelectPrompt = el => {
+  S.tpl.studio.selPrompt = el.dataset.id;
+  S.tpl.studio.lastRun = null;
+  render();
+};
+A.stSelectDoc = el => {
+  S.tpl.studio.selDoc = el.dataset.id;
+  render();
+};
+A.stSaveDoc = () => toast('Document saved', { ms: 1500 });
+A.stRunPrompt = el => {
+  const st = S.tpl.studio;
+  const p = st.prompts.find(x => x.id === st.selPrompt);
+  if (!p) return;
+  if (el) {
+    el.classList.add('is-loading');
+    el.setAttribute('aria-busy', 'true');
+  }
+  setTimeout(() => {
+    const tokens = Math.round((p.system.length + p.user.length) / 3.4);
+    const latency = 620 + (tokens % 380);
+    const drift = Math.round(Math.abs((parseFloat(st.temp) || 0.2) - 0.2) * 8);
+    const score = Math.max(72, Math.min(99, p.score - drift - 2 + (tokens % 5)));
+    st.runs.unshift({ id: uid('run-'), prompt: p.name, version: p.version, model: st.model, tokens, latency, score, at: Date.now() });
+    st.lastRun = { id: st.runs[0].id, score, tokens, latency, output: '{"category": "bug", "urgency": "high", "reason": "SCIM token rejected"}' };
+    toast(`Evaluation scored ${score}`, { kind: 'info' });
+    render();
+  }, 620);
+};
+IN.stPromptBody = el => {
+  const st = S.tpl.studio;
+  const p = st.prompts.find(x => x.id === st.selPrompt);
+  if (p) p[el.dataset.field] = el.value;
+};
+IN.stModel = el => {
+  S.tpl.studio.model = el.value;
+  render();
+};
+IN.stTemp = el => {
+  S.tpl.studio.temp = el.value;
+  render();
+};
+
+/* commerce */
+A.cmSetTab = el => {
+  S.tpl.commerce.tab = el.dataset.v;
+  render();
+};
+A.cmSetView = el => {
+  S.tpl.commerce.viewMode = el.dataset.v;
+  render();
+};
+A.cmFulfillOrder = el => {
+  const id = el.dataset.id || el.dataset.v;
+  const o = S.tpl.commerce.orders.find(x => x.id === id);
+  if (!o) return;
+  o.status = 'fulfilled';
+  S.ui.inspector = null;
+  toast(`${o.id} fulfilled`);
+  render();
+};
+A.cmRefundOrder = el => {
+  const id = el.dataset.id || el.dataset.v;
+  const o = S.tpl.commerce.orders.find(x => x.id === id);
+  if (!o) return;
+  o.status = 'refunded';
+  S.ui.inspector = null;
+  toast(`${o.id} refunded`, { kind: 'info' });
+  render();
+};
+A.cmRestock = el => {
+  const id = el.dataset.id || el.dataset.v;
+  const p = S.tpl.commerce.products.find(x => x.id === id);
+  if (!p) return;
+  p.stock += 50;
+  toast(`${p.sku} restocked +50`, { kind: 'info' });
+  render();
 };

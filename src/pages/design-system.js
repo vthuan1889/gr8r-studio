@@ -3,11 +3,12 @@ import { dOff } from '../core/utils.js';
 import { ic } from '../core/icons.js';
 import { LABELS, PCOLORS, PRIOS, STATUSES } from '../core/constants.js';
 import { S, allTasks, task } from '../core/store.js';
-import { av, avStack, empty, lbl, pStatus, prPill, progBar, stPill } from '../ui/helpers.js';
+import { av, avStack, empty, lbl, prPill, progBar, stPill } from '../ui/helpers.js';
 import { sItem } from '../shell/layout.js';
 import { sk, skRows } from '../shell/skeletons.js';
 import { miniRow } from '../components/task-list.js';
 import { kcard } from '../views/board.js';
+import { uiAvatar, uiBadge, uiButton, uiIconButton, uiProgressBar, uiSegmented, uiStatusPill } from '../ui/kit.js';
 
 export function pageSystem() {
   const tok = (n, v) => `<div class="ds-tok"><div class="c" style="--c:var(${v})"></div><div class="n"><span>${n}</span><code>${v}</code></div></div>`;
@@ -15,16 +16,80 @@ export function pageSystem() {
   const states = ['', 'state-hover', 'state-active', 'state-focus', 'dis', 'is-loading'];
   const stN = ['Default', 'Hover', 'Active', 'Focus', 'Disabled', 'Loading'];
   return `<div class="page">
-    <div class="ph"><div><h1>Design system</h1><p>Tokens and components that make up Gr8r. Switch themes to see both palettes.</p></div><div class="acts"><div class="seg">${[
-      ['light', 'sun'],
-      ['dark', 'moon'],
-      ['system', 'monitor'],
-    ]
-      .map(
-        ([k, i]) =>
-          `<button class="${S.prefs.theme === k ? 'on' : ''}" data-a="setTheme" data-v="${k}">${ic(i, 13)}${k[0].toUpperCase() + k.slice(1)}</button>`,
-      )
-      .join('')}</div></div></div>
+    <div class="ph"><div><h1>Design system</h1><p>Tokens and components that make up Gr8r. Switch themes to see both palettes.</p></div><div class="acts">
+      <div class="seg" role="group" aria-label="Theme">${[
+        ['light', 'sun'],
+        ['dark', 'moon'],
+        ['system', 'monitor'],
+      ]
+        .map(
+          ([k, i]) =>
+            `<button class="${S.prefs.theme === k ? 'on' : ''}" data-a="setTheme" data-v="${k}" aria-pressed="${S.prefs.theme === k}" data-tip="${k[0].toUpperCase() + k.slice(1)}">${ic(i, 13)}</button>`,
+        )
+        .join('')}</div>
+      <div class="swatches" role="radiogroup" aria-label="Accent color">${[
+        ['indigo', '#4B5BD6'],
+        ['blue', '#2F6CD4'],
+        ['violet', '#7348CC'],
+        ['teal', '#1A7F7A'],
+        ['rose', '#B93D68'],
+        ['graphite', '#34332F'],
+      ]
+        .map(
+          ([k, c]) =>
+            `<button class="sw ${S.prefs.accent === k ? 'on' : ''}" style="--c:${c}" role="radio" aria-checked="${S.prefs.accent === k}" data-a="setAccent" data-v="${k}" aria-label="${k}" data-tip="${
+              k[0].toUpperCase() + k.slice(1)
+            }">${S.prefs.accent === k ? ic('check', 13) : ''}</button>`,
+        )
+        .join('')}</div>
+      ${uiSegmented({
+        items: [
+          ['comfortable', 'Default'],
+          ['compact', 'Compact'],
+        ],
+        active: S.prefs.density,
+        action: 'setDensity',
+        label: 'Density',
+      })}
+    </div></div>
+    <div class="ds-sec"><h2>Design language laws <span>Five contracts every template obeys</span></h2>
+      <div class="panel" style="padding:4px 16px">${[
+        [
+          '01',
+          'Semantic tokens, never raw values',
+          'Every surface reads --surface, --text, --border or a state colour, so both palettes and all six accents come free.',
+          `<div class="row" style="gap:6px">${['--accent', '--green', '--amber', '--red', '--violet'].map(v => `<span style="width:22px;height:22px;border-radius:6px;background:var(${v})"></span>`).join('')}</div>`,
+        ],
+        [
+          '02',
+          'Numerals are tabular and aligned',
+          'Money, counts and durations use .num so columns line up to the pixel in every table.',
+          `<div class="col num" style="font-size:12px;align-items:flex-end"><span>1,248</span><span>92.4%</span><span>$148,400</span></div>`,
+        ],
+        [
+          '03',
+          'One content axis at 24px',
+          'Headers, toolbars, tables and boards all start on --gutter; nothing floats outside the shared edge.',
+          `<div class="col" style="gap:4px;width:200px"><span style="height:6px;background:var(--accent);border-radius:2px"></span><span style="height:6px;background:var(--surface-3);border-radius:2px"></span><span style="height:6px;background:var(--surface-3);border-radius:2px"></span></div>`,
+        ],
+        [
+          '04',
+          'Every screen declares four states',
+          'Loading, empty, error and default come from one gate, so no template can ship a single happy path.',
+          `<div class="row" style="gap:4px;flex-wrap:wrap">${uiBadge({ label: 'Default' })}${uiBadge({ label: 'Loading', tone: 'accent' })}${uiBadge({ label: 'Empty', tone: 'amber' })}${uiBadge({ label: 'Error', tone: 'red' })}</div>`,
+        ],
+        [
+          '05',
+          'Controls are addressable and focusable',
+          'Every control carries a data-* identity, so re-renders keep the caret, the scroll and the focus ring.',
+          `<div class="row" style="gap:6px">${uiButton({ label: 'Primary', variant: 'primary', size: 'sm' })}${uiIconButton({ icon: 'star', label: 'Favorite' })}${uiProgressBar({ value: 62, width: '64px' })}</div>`,
+        ],
+      ]
+        .map(
+          ([n, t, d, ex]) =>
+            `<div class="row" style="padding:12px 0;border-bottom:1px solid var(--divider);gap:16px;align-items:flex-start"><code class="mono faint" style="font-size:11px;width:22px">${n}</code><div style="width:230px;flex-shrink:0"><b style="font-weight:600;font-size:13px">${t}</b><div class="faint" style="font-size:12px;margin-top:2px;line-height:1.45">${d}</div></div><span class="sp"></span><div style="flex-shrink:0">${ex}</div></div>`,
+        )
+        .join('')}</div></div>
     <div class="ds-sec" style="margin-top:8px"><h2>Color <span>Semantic tokens, redefined per theme</span></h2><div class="ds-grid">${[
       ['Background', '--bg'],
       ['Sidebar', '--bg-side'],
@@ -128,7 +193,18 @@ export function pageSystem() {
     <div class="ds-sec"><h2>Data display</h2><div class="grid2" style="grid-template-columns:300px 1fr">
       <div style="background:var(--sunken);padding:10px;border-radius:var(--r-lg)">${kcard(task('t3') || allTasks()[0])}</div>
       <div class="col" style="gap:12px"><div class="ds-row"><span class="lab">Avatar</span>${['m1', 'm2', 'm3'].map(i => av(i, 'sm')).join('')}${av('m4')}${av('m5', 'md')}${av('m6', 'lg')}${av(null)}${avStack(['m1', 'm2', 'm3', 'm4', 'm5', 'm6'], 4, 'md')}</div>
-      <div class="ds-row"><span class="lab">Badge</span><span class="badge">Default</span><span class="badge accent">Accent</span><span class="badge green"><span class="dot"></span>Active</span><span class="badge amber"><span class="dot"></span>Invited</span><span class="badge red">3 overdue</span>${pStatus('active')}${pStatus('risk')}</div>
+      <div class="ds-row"><span class="lab">Badge</span>${uiBadge({ label: 'Default' })}${uiBadge({ label: 'Accent', tone: 'accent' })}${uiBadge({ label: 'Active', tone: 'green', dot: true })}${uiBadge(
+        {
+          label: 'Invited',
+          tone: 'amber',
+          dot: true,
+        },
+      )}${uiBadge({ label: '3 overdue', tone: 'red' })}${uiStatusPill({ label: 'Active', color: 'var(--green)', bordered: true })}${uiStatusPill({ label: 'At risk', color: 'var(--red)', bordered: true })}${uiAvatar(
+        {
+          name: 'Tanjim Islam',
+          color: 'var(--accent)',
+        },
+      )}</div>
       <div class="ds-row"><span class="lab">Progress</span><span style="width:200px;display:flex">${progBar(64)}</span><span style="width:120px;display:flex">${progBar(100, 'green')}</span><span style="width:120px;display:flex">${progBar(30, 'red')}</span></div>
       <div class="panel" style="overflow:hidden">${allTasks()
         .slice(0, 2)

@@ -55,6 +55,35 @@ export const FIELDS = {
     ],
   },
 };
+/* Generic list engine for the app templates: a query, field predicates, and a
+   stable sort that falls back to the original order on ties. */
+export function filterAndSort(items, { q = '', searchKeys = [], filters = {}, sort = { f: '', dir: 1 } } = {}) {
+  const needle = q.trim().toLowerCase();
+  let out = items.filter(r => {
+    if (
+      needle &&
+      searchKeys.length &&
+      !searchKeys.some(k =>
+        String(r[k] ?? '')
+          .toLowerCase()
+          .includes(needle),
+      )
+    )
+      return false;
+    return Object.entries(filters).every(([f, want]) => !want || want === 'all' || r[f] === want);
+  });
+  if (!sort.f) return out;
+  const d = sort.dir || 1;
+  out = [...out].sort((a, b) => {
+    const p = a[sort.f],
+      q2 = b[sort.f];
+    if (p === q2) return 0;
+    if (p == null) return 1;
+    if (q2 == null) return -1;
+    return (typeof p === 'string' ? p.localeCompare(q2) : p - q2) * d;
+  });
+  return out;
+}
 export function viewOf(key) {
   if (!S.views[key])
     S.views[key] = {

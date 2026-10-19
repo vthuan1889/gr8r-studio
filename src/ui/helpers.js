@@ -3,6 +3,7 @@ import { TODAY, diffD, esc, parse, relDate } from '../core/utils.js';
 import { ic } from '../core/icons.js';
 import { LB, PR, PSTAT, ST } from '../core/constants.js';
 import { D, mem, pColor } from '../core/store.js';
+import { uiEmptyState, uiProgressBar } from './kit.js';
 
 export function av(id, cls = '', tip = true) {
   const m = mem(id);
@@ -53,10 +54,10 @@ export function dueHtml(t, withIcon = true) {
   return `<span class="due ${cls}">${withIcon ? ic('calendar', 12) : ''}${relDate(t.due)}</span>`;
 }
 export function progBar(v, cls = '') {
-  return `<span class="prog ${cls}" role="progressbar" aria-valuenow="${v}" aria-valuemin="0" aria-valuemax="100"><i style="--p:${v / 100}"></i></span>`;
+  return uiProgressBar({ value: v, tone: cls });
 }
 export function empty(icon, title, text, btn = '', cls = '', level = 2) {
-  return `<div class="empty-state ${cls}"><div class="glyph">${ic(icon, 20)}</div><h${level} class="es-h">${esc(title)}</h${level}><p>${esc(text)}</p>${btn}</div>`;
+  return uiEmptyState({ icon, title, description: text, actionHtml: btn, size: cls, level });
 }
 export function hl(text, q) {
   if (!q) return esc(text);

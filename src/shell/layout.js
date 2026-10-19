@@ -4,10 +4,28 @@ import { ic, wsLogo } from '../core/icons.js';
 import { PSTAT } from '../core/constants.js';
 import { D, S, allTasks, mem, pColor, proj, team, teamsList, visibleProjects } from '../core/store.js';
 import { av } from '../ui/helpers.js';
-import { ROUTE_NAMES } from './render.js';
+import { ROUTE_ICONS, ROUTE_NAMES } from './render.js';
 import { skeleton } from './skeletons.js';
-import { pageHome } from '../pages/home.js';
-import { pageOverview } from '../pages/overview.js';
+import { ARCHETYPES } from '../data/templates-seed.js';
+import {
+  pageAnInvoices,
+  pageAnOverview,
+  pageAnRevenue,
+  pageAnUsage,
+  pageCmCustomers,
+  pageCmOrders,
+  pageCmProducts,
+  pageCrmContacts,
+  pageCrmDeals,
+  pageCrmInbox,
+  pageFlHub,
+  pageHomeGated,
+  pageOverviewGated,
+  pageStDocs,
+  pageStPrompts,
+  pageStRuns,
+  pageTemplates,
+} from '../pages/templates.js';
 import { pageMyTasks } from '../pages/my-tasks.js';
 import { pageTasks } from '../pages/tasks.js';
 import { pageInbox } from '../pages/inbox.js';
@@ -42,13 +60,13 @@ export function renderPage() {
   const r = S.ui.route;
   try {
     const P = {
-      home: pageHome,
+      home: pageHomeGated,
       inbox: pageInbox,
       mytasks: pageMyTasks,
       favorites: pageFavorites,
       notifications: pageNotifications,
       search: pageSearch,
-      overview: pageOverview,
+      overview: pageOverviewGated,
       projects: pageProjects,
       project: pageProject,
       tasks: pageTasks,
@@ -63,6 +81,21 @@ export function renderPage() {
       system: pageSystem,
       states: pageStates,
       archive: pageArchive,
+      templates: pageTemplates,
+      'an-overview': pageAnOverview,
+      'an-revenue': pageAnRevenue,
+      'an-usage': pageAnUsage,
+      'an-invoices': pageAnInvoices,
+      'crm-inbox': pageCrmInbox,
+      'crm-deals': pageCrmDeals,
+      'crm-contacts': pageCrmContacts,
+      'st-prompts': pageStPrompts,
+      'st-docs': pageStDocs,
+      'st-runs': pageStRuns,
+      'cm-orders': pageCmOrders,
+      'cm-products': pageCmProducts,
+      'cm-customers': pageCmCustomers,
+      'fl-hub': pageFlHub,
     };
     return (P[r] || page404)();
   } catch (e) {
@@ -75,16 +108,36 @@ export function sItem(route, label, icon, opt = {}) {
   const on = S.ui.route === route && (!opt.id || S.ui.params.id === opt.id);
   return `<button class="sitem ${on ? 'on' : ''}" data-a="${opt.act || 'go'}" data-r="${route}" ${opt.id ? `data-id="${opt.id}"` : ''} ${S.ui.collapsed ? `data-tip="${esc(label)}" data-tip-pos="right"` : ''} ${on ? 'aria-current="page"' : ''}>${ic(icon, 16)}<span class="trunc">${esc(label)}</span>${opt.ct ? `<span class="ct ${opt.dot ? 'dotc' : ''}">${opt.ct}</span>` : ''}${opt.kbd ? `<span class="ct hide-m"><kbd>${opt.kbd}</kbd></span>` : ''}</button>`;
 }
-export function renderSidebar() {
-  const u = S.ui,
-    d = D();
-  const unreadInbox = d.notifs.filter(n => !n.read && n.type !== 'update').length;
-  const unreadAll = d.notifs.filter(n => !n.read).length;
-  const myOpen = allTasks().filter(t => t.assignee === d.me && t.status !== 'done' && t.due && diffD(parse(t.due), TODAY) <= 0).length;
-  const projs = visibleProjects().filter(p => p.status !== 'complete');
-  const inProj = u.route === 'project' ? u.params.id : null;
-  return `<nav class="side" aria-label="Main">
-    <div class="side-top">
+const QUICK = {
+  crm: [
+    ['crm-inbox', 'VIP threads', 'star', 'tab', 'vip'],
+    ['crm-inbox', 'SLA risk', 'triangle-alert', 'tab', 'risk'],
+    ['crm-inbox', 'Unassigned', 'user-plus', 'tab', 'unassigned'],
+  ],
+  commerce: [
+    ['cm-orders', 'Unfulfilled', 'package', 'tab', 'unfulfilled'],
+    ['cm-orders', 'Refunded', 'rotate-ccw', 'tab', 'refunded'],
+  ],
+  analytics: [
+    ['an-invoices', 'Failed payments', 'circle-alert', 'statusFilter', 'failed'],
+    ['an-invoices', 'Open invoices', 'clock', 'statusFilter', 'open'],
+  ],
+};
+
+/* Unread / open counts per archetype, so the sidebar promises what the screen shows. */
+function archetypeBadges(id) {
+  if (id === 'crm') return { 'crm-inbox': S.tpl.crm.threads.filter(t => t.unread).length || '' };
+  if (id === 'commerce') return { 'cm-orders': S.tpl.commerce.orders.filter(o => o.status === 'unfulfilled').length || '' };
+  if (id === 'analytics') return { 'an-invoices': S.tpl.analytics.ledger.filter(r => r.status !== 'paid').length || '' };
+  if (id === 'studio') return { 'st-runs': S.tpl.studio.runs.filter(r => r.score < 85).length || '' };
+  return {};
+}
+
+function sideTop() {
+  const u = S.ui;
+  const d = D();
+  const a = ARCHETYPES.find(x => x.id === u.app) || ARCHETYPES[0];
+  return `<div class="side-top">
       <div class="row" style="gap:2px">
         <button class="ws grow" data-a="pop" data-pop="ws" aria-haspopup="menu" aria-label="Switch workspace">
           ${wsLogo(d.ws, 22)}
@@ -93,10 +146,22 @@ export function renderSidebar() {
         </button>
         ${u.collapsed ? '' : `<button class="ibtn ibtn-sm hide-m" data-a="toggleSide" data-tip="Collapse sidebar  [" aria-label="Collapse sidebar">${ic('panel-left', 15)}</button>`}
       </div>
-    </div>
-    <div class="side-scroll" data-keep="side">
-      ${u.collapsed ? `<button class="sitem" data-a="toggleSide" data-tip="Expand sidebar" data-tip-pos="right" aria-label="Expand sidebar">${ic('panel-left', 16)}</button>` : ''}
-      ${sItem('home', 'Home', 'house')}
+      <button class="ws" style="margin-top:2px" data-a="pop" data-pop="appSwitcher" aria-haspopup="menu" aria-label="Switch app template" ${u.collapsed ? 'data-tip="App templates" data-tip-pos="right"' : ''}>
+        <span class="picon" style="--sz:20px;--c:${a.color}">${ic(a.icon, 12)}</span>
+        ${u.collapsed ? '' : `<span class="grow trunc" style="font-size:12.5px;color:var(--text-2);text-align:left">${esc(a.short)}</span><span class="chev-d faint">${ic('chevrons-up-down', 13)}</span>`}
+      </button>
+    </div>`;
+}
+
+function pmItems() {
+  const u = S.ui;
+  const d = D();
+  const unreadInbox = d.notifs.filter(n => !n.read && n.type !== 'update').length;
+  const unreadAll = d.notifs.filter(n => !n.read).length;
+  const myOpen = allTasks().filter(t => t.assignee === d.me && t.status !== 'done' && t.due && diffD(parse(t.due), TODAY) <= 0).length;
+  const projs = visibleProjects().filter(p => p.status !== 'complete');
+  const inProj = u.route === 'project' ? u.params.id : null;
+  return `${sItem('home', 'Home', 'house')}
       ${sItem('inbox', 'Inbox', 'inbox', { ct: unreadInbox || '', dot: true })}
       ${sItem('mytasks', 'My Tasks', 'circle-check', { ct: myOpen || '' })}
       ${sItem('favorites', 'Favorites', 'star')}
@@ -149,13 +214,54 @@ export function renderSidebar() {
         ${teamsList()
           .map(t => sItem('team', t.name, t.icon, { id: t.id }))
           .join('')}
-      </div>
+      </div>`;
+}
+
+function archetypeItems(a) {
+  const ct = archetypeBadges(a.id);
+  const quick = QUICK[a.id] || [];
+  return `<div class="sgroup"><div class="sgroup-h"><span>${esc(a.short)}</span></div>
+      ${a.routes
+        .filter(r => r !== 'settings')
+        .map(r => sItem(r, ROUTE_NAMES[r] || r, ROUTE_ICONS[r] || 'circle', { ct: ct[r] }))
+        .join('')}
+    </div>${
+      quick.length
+        ? `<div class="sgroup"><div class="sgroup-h"><span>Quick filters</span></div>${quick
+            .map(
+              ([r, label, icon, k, v]) =>
+                `<button class="sitem" data-a="tplQuick" data-r="${r}" data-k="${k}" data-v="${v}">${ic(icon, 15)}<span class="trunc">${esc(label)}</span></button>`,
+            )
+            .join('')}</div>`
+        : ''
+    }`;
+}
+
+function workbenchItems() {
+  return `<div class="sgroup"><div class="sgroup-h"><span>Workbench</span></div>
+      ${sItem('templates', 'App templates', 'layout-template', { ct: '6' })}
+      ${sItem('system', 'Design system', 'component')}
+      ${sItem('states', 'System states', 'layers')}
+    </div>`;
+}
+
+export function renderSidebar() {
+  const u = S.ui;
+  const d = D();
+  const a = ARCHETYPES.find(x => x.id === u.app) || ARCHETYPES[0];
+  return `<nav class="side" aria-label="Main">
+    ${sideTop()}
+    <div class="side-scroll" data-keep="side">
+      ${u.collapsed ? `<button class="sitem" data-a="toggleSide" data-tip="Expand sidebar" data-tip-pos="right" aria-label="Expand sidebar">${ic('panel-left', 16)}</button>` : ''}
+      ${u.app === 'pm' ? pmItems() : archetypeItems(a)}
+      ${workbenchItems()}
     </div>
     <div class="side-bot">
       <button class="sitem" data-a="pop" data-pop="help" ${u.collapsed ? 'data-tip="Help" data-tip-pos="right"' : ''}>${ic('circle-help', 16)}<span>Help & resources</span></button>
       ${sItem('settings', 'Settings', 'settings')}
       <button class="sitem" data-a="pop" data-pop="user" style="height:36px" ${u.collapsed ? 'data-tip="Profile" data-tip-pos="right"' : ''}>${av(d.me, 'presence', false)}<span class="trunc" style="color:var(--text);font-weight:500">${esc(S.prefs.name)}</span><span class="ct">${ic('chevrons-up-down', 13)}</span></button>
     </div>
+
   </nav>`;
 }
 
@@ -193,6 +299,16 @@ export function renderTopbar() {
     <style>@media(max-width:900px){#mnav-btn{display:inline-flex!important}}</style>
     <nav class="crumbs trunc" aria-label="Breadcrumb">${crumbs()}</nav>
     <span class="sp"></span>
+    <div class="seg hide-m" role="group" aria-label="Simulate view state" data-tip="Preview this screen's loading, empty and error states" data-tip-pos="bottom">${[
+      ['default', 'Default'],
+      ['loading', 'Loading'],
+      ['empty', 'Empty'],
+      ['error', 'Error'],
+    ]
+      .map(
+        ([k, n]) => `<button class="${S.ui.stateSim === k ? 'on' : ''}" data-a="setStateSim" data-v="${k}" aria-pressed="${S.ui.stateSim === k}">${n}</button>`,
+      )
+      .join('')}</div>
     <button class="topsearch" data-a="openPalette" aria-label="Search and commands">${ic('search', 14)}<span class="lbltxt">Search or jump to…</span><span class="kbd">${MOD}K</span></button>
     <button class="ibtn" data-a="go" data-r="notifications" data-tip="Notifications" aria-label="Notifications">${ic('bell', 16)}${D().notifs.some(n => !n.read) ? '<span style="position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface)"></span>' : ''}</button>
     <button class="btn btn-secondary btn-sm" data-a="pop" data-pop="create" aria-haspopup="menu" aria-label="Create new">${ic('plus', 14)}<span class="hide-m">New</span>${ic('chevron-down', 12, 'hide-m')}</button>

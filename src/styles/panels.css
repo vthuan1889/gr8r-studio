@@ -123,3 +123,44 @@
   left: 0;
   right: 0;
 }
+
+/* Two-pane workbench (CRM inbox, prompt studio, docs): a scannable list on the left and the
+   record on the right. Below 900px the record takes the viewport and the list is the back stack. */
+.split {
+  display: grid;
+  grid-template-columns: var(--split-l, 380px) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.split-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+.split-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+.split-back {
+  display: none;
+}
+@media (max-width: 900px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .split:not(.has-sel) .split-main {
+    display: none;
+  }
+  .split-main {
+    position: fixed;
+    inset: 0;
+    z-index: 48;
+    background: var(--surface);
+  }
+  .split-back {
+    display: inline-flex;
+  }
+}

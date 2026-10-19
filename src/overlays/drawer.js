@@ -11,12 +11,15 @@ import { modalHtml } from './modals.js';
 import { popHtml } from './popovers.js';
 import { paletteHtml } from './palette.js';
 import { subtaskHtml } from '../features/subtasks.js';
+import { ARCHETYPES, DEAL_STAGES } from '../data/templates-seed.js';
+import { uiAlert, uiBadge, uiButton, uiKeyValueGrid, uiStatusPill } from '../ui/kit.js';
 
 export function renderLayer() {
   const u = S.ui;
   let h = '';
   if (u.drawer && task(u.drawer))
     h += (u.drawerFull ? `<div class="drawer-scrim full${u.fx.drawer ? ' enter' : ''}" data-a="closeDrawer"></div>` : '') + drawerHtml(task(u.drawer));
+  if (u.inspector && !u.drawer) h += inspectorHtml(u.inspector);
   u.modals.forEach((m, i) => {
     const en = u.fx.modal === i + 1;
     h += `<div class="scrim${en ? ' enter' : ''}" data-a="closeModal" style="z-index:${60 + i * 2}"></div><div class="modal-wrap" data-a="closeModalBg" style="z-index:${61 + i * 2}">${en ? modalHtml(m).replace('class="modal ', 'class="modal enter ') : modalHtml(m)}</div>`;
@@ -142,4 +145,249 @@ export function commentHtml(c) {
       .join(
         '',
       )}<button class="react" data-a="pop" data-pop="emoji" data-id="${c.id}" aria-label="Add reaction" style="color:var(--text-3)">${ic('smile-plus', 13)}</button></div></div></div>`;
+}
+
+/* ---------------- INSPECTOR: analytics, CRM, AI and commerce records ---------------- */
+const money = n => '$' + Math.round(n).toLocaleString('en-US');
+
+function inspInvoice(inv) {
+  return `<div class="dsec"><div class="dsec-h"><h3>Invoice</h3><span class="cnt">${esc(inv.id)}</span></div>
+    ${uiKeyValueGrid({
+      twoCol: true,
+      items: [
+        { icon: 'building-2', label: 'Organisation', value: inv.org },
+        { icon: 'credit-card', label: 'Plan', html: uiBadge({ label: inv.plan, tone: inv.plan === 'Enterprise' ? 'accent' : '' }) },
+        { icon: 'receipt', label: 'Amount', value: money(inv.amount) },
+        { icon: 'activity', label: 'MRR', value: money(inv.mrr) },
+        { icon: 'users', label: 'Seats', value: String(inv.seats) },
+        { icon: 'calendar', label: 'Issued', value: fmtDate(inv.date) },
+      ],
+    })}
+  </div>
+  <div class="dsec"><div class="dsec-h"><h3>Payment state</h3></div>
+    ${uiAlert({
+      tone: inv.status === 'paid' ? 'ok' : inv.status === 'open' ? 'warn' : 'danger',
+      title: inv.status === 'paid' ? 'Collected' : inv.status === 'open' ? 'Awaiting payment' : 'Payment failed',
+      message:
+        inv.status === 'paid'
+          ? 'Card charged successfully. Nothing to do.'
+          : inv.status === 'open'
+            ? 'The invoice is inside its net-30 window.'
+            : 'Dunning started: three retries over nine days.',
+      actionHtml: inv.status === 'paid' ? '' : uiButton({ label: 'Mark paid', icon: 'circle-check', size: 'sm', action: 'demoToast', value: 'ok' }),
+    })}
+  </div>
+  <div class="dsec"><div class="dsec-h"><h3>Seat utilisation</h3><span class="cnt num">${Math.round(inv.seats * 0.78)}/${inv.seats}</span></div>
+    ${progBar(Math.round(78))}
+  </div>`;
+}
+
+function inspUsage(rec) {
+  return `<div class="dsec"><div class="dsec-h"><h3>Service</h3><span class="cnt">${esc(rec.service)}</span></div>
+    ${uiKeyValueGrid({
+      twoCol: true,
+      items: [
+        { icon: 'cpu', label: 'Service', value: rec.service },
+        { icon: 'layers', label: 'Environment', html: uiBadge({ label: rec.env, tone: rec.env === 'production' ? 'accent' : '' }) },
+        { icon: 'activity', label: 'Requests', value: rec.requests.toLocaleString('en-US') },
+        { icon: 'coins', label: 'Unit cost', value: '$' + rec.unitCost.toFixed(7) },
+        { icon: 'receipt', label: 'Spend', value: money(rec.spend) },
+        { icon: 'trending-up', label: 'Trend', html: uiBadge({ label: `${rec.trend > 0 ? '+' : ''}${rec.trend}%`, tone: rec.trend > 0 ? 'red' : 'green' }) },
+      ],
+    })}
+  </div>`;
+}
+
+function inspDeal(d) {
+  const i = DEAL_STAGES.indexOf(d.stage);
+  return `<div class="dsec"><div class="dsec-h"><h3>Deal</h3><span class="cnt">${esc(d.account)}</span></div>
+    ${uiKeyValueGrid({
+      items: [
+        { icon: 'building-2', label: 'Account', value: d.account },
+        { icon: 'credit-card', label: 'ARR', value: money(d.arr) },
+        { icon: 'users', label: 'Seats', value: String(d.seats) },
+        { icon: 'user', label: 'Owner', value: d.owner },
+        { icon: 'calendar', label: 'Close date', value: fmtDate(d.closeDate) },
+        { icon: 'git-branch', label: 'Stage', html: uiBadge({ label: d.stage, tone: i === DEAL_STAGES.length - 1 ? 'green' : 'accent' }) },
+      ],
+    })}
+  </div>
+  <div class="dsec"><div class="dsec-h"><h3>Pipeline</h3></div>
+    <div class="stack" style="gap:4px">${DEAL_STAGES.map((s, k) => `<div class="row" style="gap:8px;font-size:13px;${k <= i ? '' : 'color:var(--text-3)'}">${ic(k < i ? 'circle-check' : k === i ? 'circle-dot' : 'circle', 14)}<span class="grow">${s}</span>${k === i ? uiBadge({ label: 'Now', tone: 'accent' }) : ''}</div>`).join('')}</div>
+    ${i < DEAL_STAGES.length - 1 ? `<div style="margin-top:12px">${uiButton({ label: `Move to ${DEAL_STAGES[i + 1]}`, icon: 'arrow-right', variant: 'primary', size: 'sm', action: 'crmAdvanceDeal', value: d.id })}</div>` : ''}
+  </div>`;
+}
+
+function inspAccount(ct) {
+  const threads = S.tpl.crm.threads.filter(t => t.company === ct.company);
+  return `<div class="dsec"><div class="dsec-h"><h3>Account</h3>${uiStatusPill({
+    label: ct.health,
+    color: ct.health === 'Healthy' ? 'var(--green)' : ct.health === 'Expanding' ? 'var(--accent)' : 'var(--red)',
+    bordered: true,
+  })}</div>
+    ${uiKeyValueGrid({
+      items: [
+        { icon: 'user', label: 'Contact', value: ct.name },
+        { icon: 'mail', label: 'Email', value: ct.email },
+        { icon: 'building-2', label: 'Account', value: ct.company },
+        { icon: 'credit-card', label: 'ARR', value: money(ct.arr) },
+        { icon: 'users', label: 'Seats', value: String(ct.seats) },
+        { icon: 'calendar', label: 'Renewal', value: fmtDate(ct.renewal) },
+        { icon: 'user-check', label: 'Owner', value: ct.owner || 'Unassigned' },
+      ],
+    })}
+  </div>
+  <div class="dsec"><div class="dsec-h"><h3>Conversations</h3><span class="cnt num">${threads.length}</span></div>
+    ${threads.length ? threads.map(t => `<div class="row" style="gap:8px;padding:7px 0;border-bottom:1px solid var(--divider);cursor:pointer" data-a="crmSelectThread" data-id="${t.id}">${ic('message-square', 13)}<span class="grow trunc" style="font-size:12.5px">${esc(t.subject)}</span>${uiBadge({ label: t.sla === 'ok' ? 'On track' : t.sla === 'risk' ? 'At risk' : 'Breached', tone: t.sla === 'ok' ? 'green' : t.sla === 'risk' ? 'amber' : 'red' })}</div>`).join('') : '<p class="faint" style="font-size:12.5px;margin:6px 0">No open conversations.</p>'}
+    <div style="margin-top:12px">${uiButton({ label: 'Open inbox', icon: 'inbox', size: 'sm', action: 'go', attrs: 'data-r="crm-inbox"' })}</div>
+  </div>`;
+}
+
+function inspRun(run) {
+  return `<div class="dsec"><div class="dsec-h"><h3>Trace</h3><span class="cnt">${esc(run.id)}</span></div>
+    ${uiKeyValueGrid({
+      twoCol: true,
+      items: [
+        { icon: 'sparkles', label: 'Prompt', value: run.prompt },
+        { icon: 'git-branch', label: 'Version', html: uiBadge({ label: run.version, tone: 'accent' }) },
+        { icon: 'cpu', label: 'Model', value: run.model },
+        { icon: 'coins', label: 'Tokens', value: String(run.tokens) },
+        { icon: 'timer', label: 'Latency', value: `${run.latency}ms` },
+        { icon: 'gauge', label: 'Score', html: uiBadge({ label: String(run.score), tone: run.score >= 90 ? 'green' : run.score >= 80 ? 'amber' : 'red' }) },
+        { icon: 'clock', label: 'Run at', value: ago(run.at) },
+      ],
+    })}
+  </div>
+  <div class="dsec"><div class="dsec-h"><h3>Output</h3><div class="acts">${uiButton({ label: 'Copy', icon: 'copy', size: 'sm', variant: 'ghost', action: 'demoToast', value: 'ok' })}</div></div>
+    <pre class="mono" style="margin:0;padding:10px;border-radius:var(--r);background:var(--sunken);border:1px solid var(--border);font-size:12px;white-space:pre-wrap">${esc(
+      '{"category": "bug", "urgency": "high", "reason": "SCIM token rejected"}',
+    )}</pre>
+    <div style="margin-top:12px">${uiButton({ label: 'All runs', icon: 'terminal', size: 'sm', action: 'go', attrs: 'data-r="st-runs"' })}</div>
+  </div>`;
+}
+
+function inspOrder(o) {
+  const units = o.items.reduce((s, i) => s + i.qty, 0);
+  return `<div class="dsec"><div class="dsec-h"><h3>Order</h3><span class="cnt">${esc(o.id)}</span></div>
+    ${uiKeyValueGrid({
+      items: [
+        { icon: 'user', label: 'Customer', value: o.customer },
+        { icon: 'mail', label: 'Email', value: o.email },
+        { icon: 'shopping-bag', label: 'Channel', value: o.channel },
+        { icon: 'truck', label: 'Shipping', value: o.ship },
+        { icon: 'clock', label: 'Placed', value: ago(o.placed) },
+        {
+          icon: 'circle-dot',
+          label: 'Status',
+          html: uiBadge({
+            label: o.status.charAt(0).toUpperCase() + o.status.slice(1),
+            tone: o.status === 'fulfilled' ? 'green' : o.status === 'unfulfilled' ? 'amber' : 'red',
+            dot: true,
+          }),
+        },
+      ],
+    })}
+  </div>
+  <div class="dsec"><div class="dsec-h"><h3>Line items</h3><span class="cnt num">${units}</span></div>
+    <table class="perm-t"><thead><tr><th style="text-align:left">Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>${o.items
+      .map(
+        i =>
+          `<tr><td style="text-align:left"><b style="font-weight:500">${esc(i.name)}</b><div class="faint mono" style="font-size:11px">${esc(i.sku)}</div></td><td class="num">${i.qty}</td><td class="num">${money(i.price)}</td><td class="num">${money(i.price * i.qty)}</td></tr>`,
+      )
+      .join('')}</tbody></table>
+    <div class="row" style="margin-top:10px;font-size:13px"><span class="sp"></span><span class="muted">Subtotal</span><b class="num">${money(o.total)}</b></div>
+    <div class="row" style="font-size:13px"><span class="sp"></span><span class="muted">Shipping</span><b class="num">${o.channel === 'Wholesale' ? money(420) : 'Included'}</b></div>
+    <div class="row" style="font-size:14px;border-top:1px solid var(--divider);padding-top:8px;margin-top:4px"><span class="sp"></span><b>Total</b><b class="num">${money(
+      o.total + (o.channel === 'Wholesale' ? 420 : 0),
+    )}</b></div>
+  </div>
+  <div class="dsec"><div class="dsec-h"><h3>Actions</h3></div>
+    <div class="row" style="gap:8px">${uiButton({ label: 'Fulfill order', icon: 'package-check', variant: 'primary', size: 'sm', action: 'cmFulfillOrder', value: o.id, disabled: o.status !== 'unfulfilled' })}${uiButton(
+      { label: 'Refund', icon: 'rotate-ccw', variant: 'danger-ghost', size: 'sm', action: 'cmRefundOrder', value: o.id, disabled: o.status !== 'fulfilled' },
+    )}</div>
+  </div>`;
+}
+
+function inspSku(p) {
+  return `<div class="dsec"><div class="dsec-h"><h3>SKU</h3><span class="cnt mono">${esc(p.sku)}</span></div>
+    ${uiKeyValueGrid({
+      items: [
+        { icon: 'package', label: 'Product', value: p.name },
+        { icon: 'tag', label: 'Category', value: p.category },
+        { icon: 'receipt', label: 'Price', value: money(p.price) },
+        { icon: 'coins', label: 'Cost', value: money(p.cost) },
+        { icon: 'trending-up', label: 'Margin', value: `${Math.round(((p.price - p.cost) / p.price) * 100)}%` },
+        { icon: 'warehouse', label: 'On hand', value: String(p.stock) },
+        { icon: 'triangle-alert', label: 'Reorder at', value: String(p.reorder) },
+        { icon: 'activity', label: 'Sold (90d)', value: String(p.sold) },
+      ],
+    })}
+  </div>
+  <div class="dsec"><div class="dsec-h"><h3>Stock</h3><span class="cnt num">${p.stock}</span></div>
+    ${progBar(Math.min(100, Math.round((p.stock / (p.reorder * 4)) * 100)), p.stock === 0 ? 'red' : p.stock <= p.reorder ? 'amber' : 'green')}
+    <div style="margin-top:12px">${uiButton({ label: 'Restock +50', icon: 'plus', variant: 'primary', size: 'sm', action: 'cmRestock', value: p.id })}</div>
+  </div>`;
+}
+
+export function inspectorHtml(insp) {
+  const a = ARCHETYPES.find(x => x.id === insp.app) || ARCHETYPES[0];
+  const t = S.tpl;
+  let title = 'Details';
+  let sub = '';
+  let body = '';
+  if (insp.app === 'analytics') {
+    const inv = t.analytics.ledger.find(x => x.id === insp.id);
+    const svc = t.analytics.usage.find(x => x.id === insp.id);
+    if (inv) {
+      title = inv.org;
+      sub = inv.plan;
+      body = inspInvoice(inv);
+    } else if (svc) {
+      title = svc.service;
+      sub = svc.env;
+      body = inspUsage(svc);
+    }
+  } else if (insp.app === 'crm') {
+    const deal = t.crm.deals.find(x => x.id === insp.id);
+    const ct = t.crm.contacts.find(x => x.id === insp.id);
+    if (deal) {
+      title = deal.name;
+      sub = deal.account;
+      body = inspDeal(deal);
+    } else if (ct) {
+      title = ct.name;
+      sub = ct.company;
+      body = inspAccount(ct);
+    }
+  } else if (insp.app === 'studio') {
+    const run = t.studio.runs.find(x => x.id === insp.id);
+    if (run) {
+      title = run.prompt;
+      sub = run.model;
+      body = inspRun(run);
+    }
+  } else if (insp.app === 'commerce') {
+    const o = t.commerce.orders.find(x => x.id === insp.id);
+    const p = t.commerce.products.find(x => x.id === insp.id);
+    if (o) {
+      title = o.customer;
+      sub = o.id;
+      body = inspOrder(o);
+    } else if (p) {
+      title = p.name;
+      sub = p.sku;
+      body = inspSku(p);
+    }
+  }
+  if (!body) return '';
+  return `<aside class="drawer enter" role="dialog" aria-labelledby="insp-h" tabindex="-1">
+    <h2 class="sr" id="insp-h">${esc(title)}</h2>
+    <div class="drawer-h">
+      <span class="picon" style="--sz:22px;--c:${a.color}">${ic(a.icon, 12)}</span>
+      <b class="trunc" style="font-weight:600;font-size:13px">${esc(title)}</b>${sub ? `<span class="faint trunc" style="font-size:12px">${esc(sub)}</span>` : ''}
+      <span class="sp"></span>
+      <button class="ibtn ibtn-sm" data-a="closeInspector" data-tip="Close  Esc" aria-label="Close details">${ic('x', 16)}</button>
+    </div>
+    <div class="drawer-b" data-keep="inspector">${body}</div>
+  </aside>`;
 }

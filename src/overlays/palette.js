@@ -10,6 +10,7 @@ import { sortTasks } from '../shell/view-engine.js';
 import { searchAll } from '../pages/search.js';
 import { openModal } from './modals.js';
 import { A } from '../actions/actions.js';
+import { ARCHETYPES } from '../data/templates-seed.js';
 
 export function commands() {
   return [
@@ -54,6 +55,18 @@ export function commands() {
     { id: 'c-side', name: 'Toggle sidebar', icon: 'panel-left', kbd: '[', run: () => A.toggleSide() },
     { id: 'c-keys', name: 'Keyboard shortcuts', icon: 'keyboard', kbd: '?', run: () => A.shortcuts() },
     { id: 'c-out', name: 'Sign out', icon: 'log-out', run: () => A.signOut() },
+    { id: 'c-tpl', name: 'Template gallery', icon: 'layout-template', run: () => go('templates') },
+    { id: 'c-sys', name: 'Design system', icon: 'component', run: () => go('system') },
+    {
+      id: 'c-sim',
+      name: `Cycle state simulator (${S.ui.stateSim})`,
+      icon: 'layers',
+      run: () => {
+        const seq = ['default', 'loading', 'empty', 'error'];
+        A.setStateSim({ dataset: { v: seq[(seq.indexOf(S.ui.stateSim) + 1) % seq.length] } });
+      },
+    },
+    ...ARCHETYPES.map(a => ({ id: 'c-app-' + a.id, name: `Switch to ${a.name}`, icon: a.icon, run: () => A.switchApp({ dataset: { v: a.id } }) })),
   ];
 }
 export function paletteItems() {

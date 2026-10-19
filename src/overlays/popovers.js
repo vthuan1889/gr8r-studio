@@ -9,6 +9,7 @@ import { FIELDS, viewOf } from '../shell/view-engine.js';
 import { TCOLS } from '../views/table.js';
 import { startOfWeek } from '../views/calendar.js';
 import { ctxMenu } from './context-menu.js';
+import { ARCHETYPES } from '../data/templates-seed.js';
 
 export function openPop(el, extra = {}) {
   const r = el.getBoundingClientRect();
@@ -96,6 +97,21 @@ export function popHtml(p) {
     style = '';
   const t = ['status', 'priority', 'assignee', 'labels', 'date', 'project', 'deps', 'recur', 'estimate'].includes(p.type) ? tgt(p) : null;
   switch (p.type) {
+    case 'appSwitcher':
+      inner = `<div class="mh">App templates</div>${ARCHETYPES.map(
+        a =>
+          `<button class="mi" data-a="switchApp" data-v="${a.id}" role="menuitemradio" aria-checked="${S.ui.app === a.id}"><span class="picon" style="--sz:20px;--c:${a.color}">${ic(
+            a.icon,
+            12,
+          )}</span><span class="grow" style="white-space:normal;line-height:1.3"><span style="display:block;font-weight:500">${esc(a.name)}</span><span class="faint" style="font-size:11px">${esc(
+            a.surface,
+          )}</span></span>${S.ui.app === a.id ? `<span class="ck">${ic('check', 14)}</span>` : ''}</button>`,
+      ).join('')}<div class="msep"></div>
+      <button class="mi" data-a="go" data-r="templates">${ic('layout-template', 15)}Template gallery</button>
+      <button class="mi" data-a="go" data-r="system">${ic('component', 15)}Design system</button>
+      <button class="mi" data-a="go" data-r="states">${ic('layers', 15)}System states</button>`;
+      style = 'width:300px';
+      break;
     case 'create':
       inner = `<div class="mh">Create</div><button class="mi" data-a="newTask">${ic('circle-check', 15)}Task<span class="r"><kbd>N</kbd></span></button><button class="mi" data-a="newProject">${ic('folder-plus', 15)}Project<span class="r"><kbd>P</kbd></span></button><button class="mi" data-a="newTeam">${ic('users', 15)}Team</button><div class="msep"></div><button class="mi" data-a="invite">${ic('user-plus', 15)}Invite member</button>`;
       style = 'width:220px';

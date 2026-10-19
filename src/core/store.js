@@ -2,6 +2,7 @@
 import { TODAY, diffD, iso, parse, uid } from './utils.js';
 import { PCOLORS, TEAMS_SEED } from './constants.js';
 import { seed } from '../data/seed.js';
+import { seedTemplates } from '../data/templates-seed.js';
 
 export const STORE_KEY = 'gr8r.v2';
 export const DEFAULT_PREFS = {
@@ -36,8 +37,13 @@ export const S = {
   data: saved?.data || seed(),
   prefs: Object.assign({}, DEFAULT_PREFS, saved?.prefs || {}),
   views: saved?.views || {},
+  /* multi-app template fixtures: demo-only, rebuilt from seed on reload */
+  tpl: seedTemplates(),
   ui: {
     fx: {},
+    app: 'pm',
+    stateSim: 'default',
+    inspector: null,
     auth: null,
     authStep: 'login',
     onb: 0,

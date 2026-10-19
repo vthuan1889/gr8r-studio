@@ -134,6 +134,11 @@ document.addEventListener('keydown', e => {
       A.closeDrawer();
       return;
     }
+    if (S.ui.inspector) {
+      if (typing) t.blur();
+      A.closeInspector();
+      return;
+    }
     if (S.ui.mnav) {
       A.closeMnav();
       return;
